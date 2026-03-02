@@ -4,10 +4,12 @@
     "description": "Show mermaid diagrams in a draggable and resizable popup",
     "main": "main.ts",
     "scripts": {
-        "dev": "npx rollup -c rollup.config.mjs -w --environment PRODUCTION:0",
-        "build": "npx rollup -c rollup.config.mjs --environment PRODUCTION:1",
-        "lint": "npx eslint src --ext .ts",
-        "rollup": "npx rollup"
+        "dev": "rollup -c rollup.config.mjs -w --environment PRODUCTION:0",
+        "build": "rollup -c rollup.config.mjs --environment PRODUCTION:1",
+        "build-install": "bash scripts/build-and-install.sh",
+        "install-plugin": "node -e \"const fs=require('fs');const path=require('path');const vault=process.argv[1]||process.env.OBSIDIAN_VAULT;if(!vault){console.error('Error: OBSIDIAN_VAULT environment variable not set and no vault path provided');process.exit(1);}const pluginId='mermaid-popup';const targetDir=path.join(vault,'.obsidian','plugins',pluginId);fs.mkdirSync(targetDir,{recursive:true});['main.js','manifest.json','styles.css'].forEach(file=>{const src=path.join(__dirname,file);const dest=path.join(targetDir,file);if(fs.existsSync(src)){fs.copyFileSync(src,dest);console.log('Copied '+file);}else{console.warn('Warning: '+file+' not found');}});console.log('Plugin installed to '+targetDir);\"",
+        "lint": "eslint src --ext .ts",
+        "rollup": "rollup"
     },
     "devDependencies": {
         "@rollup/plugin-commonjs": "^28.0.1",
@@ -16,7 +18,9 @@
         "@rollup/plugin-replace": "^6.0.1",
         "@rollup/plugin-terser": "^0.4.4",
         "@rollup/plugin-typescript": "^12.1.0",
+        "eslint": "^10.0.2",
         "obsidian": "latest",
+        "rollup": "^4.59.0",
         "rollup-plugin-copy": "^3.5.0",
         "rollup-plugin-visualizer": "^5.12.0",
         "typescript": "^4.3.5"

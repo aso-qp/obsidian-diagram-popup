@@ -88,13 +88,14 @@ class MermaidPopupSettingTab extends PluginSettingTab {
 
         const row_1 = tbody.createEl('tr');
         const row_2 = tbody.createEl('tr');
+        const row_2b = tbody.createEl('tr');
 
         const td_1_1 = row_1.createEl('td');
-        // 缩放设置标题
+        // Zoom ratio setting title
         let titleZoomRatio = td_1_1.createEl('h2', { text: 'Zoom Ratio' });
         titleZoomRatio.classList.add('config-text');
         const td_2_1 = row_2.createEl('td');
-        // 缩放设置
+        // Zoom ratio setting
         new Setting(td_2_1)
         .setName('Choose the ratio for zooming in or out')
         .addDropdown(dropdown => {
@@ -109,14 +110,32 @@ class MermaidPopupSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }
             )
-        });  
+        });
+
+        const td_2b_1 = row_2b.createEl('td');
+        // Zoom damping setting
+        new Setting(td_2b_1)
+        .setName('Zoom Damping (0.1 = slower, 1.0 = original speed)')
+        .addDropdown(dropdown => {
+            let ddZoomDamping = this.plugin.settings.kvMapZoomDamping;
+            for(const key in ddZoomDamping){
+                dropdown.addOption(key, ddZoomDamping[key])
+            }
+            dropdown
+                .setValue(this.plugin.settings.ZoomDampingValue)
+                .onChange(async (value) => {
+                    this.plugin.settings.ZoomDampingValue = value;
+                    await this.plugin.saveSettings();
+                }
+            )
+        });
 
         const td_1_2 = row_1.createEl('td');
-        // 移动步长设置标题
+        // Move step setting title
         let titleMoveStep = td_1_2.createEl('h2', { text: 'Move Step' });
         titleMoveStep.classList.add('config-text');
         const td_2_2 = row_2.createEl('td');
-        // 移动步长设置
+        // Move step setting
         new Setting(td_2_2)
         .setName('Choose the step for moving')
         .addDropdown(dropdown => {
@@ -180,20 +199,20 @@ class MermaidPopupSettingTab extends PluginSettingTab {
         let title_btn_pos = containerEl.createEl('h2', { text: 'Open Popup Button Relative Position Init' });
         title_btn_pos.classList.add('config-text');
         
-        // x 轴相对位置
+        // x-axis offset from left
         const kvRow_open_btn = containerEl.createDiv({ cls: 'kv-row open_btn_pos' });
-        this.slideInput(kvRow_open_btn, "x:", this.plugin.settings.open_btn_pos_x,  (val)=>{this.plugin.settings.open_btn_pos_x=val}, '1', '500', 'px');
-        this.setInfo(kvRow_open_btn, 'Click for tips on Open Popup Button Relative Position Init Setting.',
-            'Open Popup Button Relative Position Init Setting',
-            'x represents the pixels to the right edge of the target container.'
-        )    
+        this.slideInput(kvRow_open_btn, "Left offset:", this.plugin.settings.open_btn_pos_x,  (val)=>{this.plugin.settings.open_btn_pos_x=val}, '1', '500', 'px');
+        this.setInfo(kvRow_open_btn, 'Click for tips on Open Popup Button Position.',
+            'Open Popup Button Position',
+            'Distance in pixels from the left edge of the diagram.'
+        )
 
-        // y 轴相对位置
+        // y-axis offset from top
         const kvRow_open_btn_y = containerEl.createDiv({ cls: 'kv-row open_btn_pos' });
-        this.slideInput(kvRow_open_btn_y, "y:", this.plugin.settings.open_btn_pos_y,  (val)=>{this.plugin.settings.open_btn_pos_y=val}, '1', '500', 'px');
-        this.setInfo(kvRow_open_btn_y, 'Click for tips on Open Popup Button Relative Position Init Setting.',
-            'Open Popup Button Relative Position Init Setting',
-            'y represents the pixels to the top edge of the target container.'
+        this.slideInput(kvRow_open_btn_y, "Top offset:", this.plugin.settings.open_btn_pos_y,  (val)=>{this.plugin.settings.open_btn_pos_y=val}, '1', '500', 'px');
+        this.setInfo(kvRow_open_btn_y, 'Click for tips on Open Popup Button Position.',
+            'Open Popup Button Position',
+            'Distance in pixels from the top edge of the diagram.'
         )         
 
         // Add New Target

@@ -16,6 +16,8 @@ interface MermaidPopupSetting {
 
     ZoomRatioValue:string;
     kvMapZoomRatio: Record<string, string>;
+    ZoomDampingValue:string;
+    kvMapZoomDamping: Record<string, string>;
     MoveStepValue:string;
     kvMapMoveStep: Record<string, string>;
 
@@ -31,7 +33,11 @@ interface MermaidPopupSetting {
 const DEFAULT_SETTINGS: MermaidPopupSetting = {
     kvMap: {},
     kvMapDefault: {
-        'Mermaid':'.mermaid'
+        'Mermaid':'.mermaid',
+        'PlantUML SVG':'.block-language-plantuml-svg',
+        'PlantUML PNG':'.block-language-plantuml-png',
+        'PlantUML ASCII':'.block-language-plantuml-ascii',
+        'PlantUML':'.block-language-plantuml'
     },
     kvMapReserved:{
         'Reserved': '.diagram-popup'
@@ -61,6 +67,19 @@ const DEFAULT_SETTINGS: MermaidPopupSetting = {
         '0.3':'0.3',
         '0.4':'0.4'
     },
+    ZoomDampingValue:'0.2',
+    kvMapZoomDamping:{
+        '0.1':'0.1',
+        '0.2':'0.2',
+        '0.3':'0.3',
+        '0.4':'0.4',
+        '0.5':'0.5',
+        '0.6':'0.6',
+        '0.7':'0.7',
+        '0.8':'0.8',
+        '0.9':'0.9',
+        '1.0':'1.0'
+    },
     MoveStepValue:'30',
     kvMapMoveStep:{
         '20':'20',
@@ -69,8 +88,8 @@ const DEFAULT_SETTINGS: MermaidPopupSetting = {
         '50':'60',
         '60':'60',
     },
-    open_btn_pos_x:'35',
-    open_btn_pos_y:'90',
+    open_btn_pos_x:'10',
+    open_btn_pos_y:'10',
     bgColorLight:'rgba(255,255,255, 0.5)',
     bgColorDark:'rgba(51,51,51, 0.5)',
     bgAlpha:'0.5',
@@ -93,7 +112,8 @@ const DEFAULT_SETTINGS: MermaidPopupSetting = {
 export default class MermaidPopupPlugin extends Plugin {
     settings!: MermaidPopupSetting;
     observer_editting!:MutationObserver | null;
-    observer_reading!:MutationObserver | null; 
+    observer_reading!:MutationObserver | null;
+    isInsertingButton:boolean = false;
 
     class_editBlockBtn = 'edit-block-button';
     class_openPopupBtn='mermaid-popup-button';
@@ -218,35 +238,38 @@ export default class MermaidPopupPlugin extends Plugin {
         return {popupButtonClass_read, popupButtonClass_container_read}
     }    
 
-    // monitor new element add to edit view 
+    // monitor new element add to edit view
     ObserveToAddPopupButton(myView: HTMLElement){
         if (this.observer_editting)
             return;
         this.observer_editting = new MutationObserver((mutationsList, observer) => {
+            if (this.isInsertingButton) return;
 
-            let containerArr = this.GetSettingsClassElementAll(myView) as Array<[HTMLElement, string]>;                
+            let containerArr = this.GetSettingsClassElementAll(myView) as Array<[HTMLElement, string]>;
             for(var i=0;i<containerArr.length;i++){
                 let container = containerArr[i] as [HTMLElement, string];
                 let isTarget = this.IsClassListContains_SettingsDiagramClass(container[0]);
 
                 if(isTarget){
-                    this.addPopupButton(container, true); 
+                    this.addPopupButton(container, true);
                 }
             }
         });
 
         this.observer_editting.observe(myView, { childList: true, subtree: true});
     }
-    // monitor new element add to read view 
+    // monitor new element add to read view
     ObserveToAddPopupButton_Reading(myView: HTMLElement){
         if (this.observer_reading)
             return;
         this.observer_reading = new MutationObserver((mutationsList, observer) => {
+            if (this.isInsertingButton) return;
+
             let containerArr = this.GetSettingsClassElementAll(myView) as Array<[HTMLElement, string]>;;
             for(var i=0;i<containerArr.length;i++){
                 let container = containerArr[i] as [HTMLElement, string];
                 if(this.IsClassListContains_SettingsDiagramClass(container[0])){
-                    this.addPopupButton(container); 
+                    this.addPopupButton(container);
                 }
             }
         });
@@ -341,7 +364,7 @@ export default class MermaidPopupPlugin extends Plugin {
     addPopupButton(target_and_flagContainer: [HTMLElement, string], isDebug:boolean=false) {
         let target = target_and_flagContainer[0];
 
-        // 切换模式时，如判断原模式的目标，则退出当前方法        
+        // 切换模式时，如判断原模式的目标，则退出当前方法
         if(this.isPreviewMode() && this.isParentEditting(target))
             return;
 
@@ -350,7 +373,7 @@ export default class MermaidPopupPlugin extends Plugin {
 
         let {popupButtonClass} = this.getOpenBtnInMd_Mark();
 
-        let popupButton;   
+        let popupButton;
         let flagContainer = target_and_flagContainer[1] == 'true';
 
         let targetContainer = flagContainer? target:target.parentElement as HTMLElement;
@@ -360,7 +383,7 @@ export default class MermaidPopupPlugin extends Plugin {
         if (popupButton){
             this.adjustDiagramWidthAndHeight_ToContainer(targetContainer);
             return;
-        } 
+        }
 
         this.create_open_button(target_and_flagContainer, isDebug);
     }
@@ -372,6 +395,9 @@ export default class MermaidPopupPlugin extends Plugin {
         let flagContainer = target_and_flagContainer[1] == 'true';
         let targetContainer = flagContainer? target:target.parentElement as HTMLElement;
 
+        // Guard: prevent observer re-entrancy during DOM mutations
+        this.isInsertingButton = true;
+
         // Create the popup button
         let popupButton = targetContainer.doc.createElement('div');
         popupButton.classList.add(popupButtonClass);
@@ -379,7 +405,7 @@ export default class MermaidPopupPlugin extends Plugin {
         setIcon(popupButton, 'maximize');
         popupButton.title = 'Open Popup';
 
-        // 插入位置
+        // Insert the button into the container
         targetContainer.insertAdjacentElement('afterbegin', popupButton);
 
         this.adjustDiagramWidthAndHeight_ToContainer(targetContainer);
@@ -392,10 +418,13 @@ export default class MermaidPopupPlugin extends Plugin {
             targetContainer.setCssStyles({
                 display: 'inline-block',
                 position: 'relative'
-            });     
+            });
         }
 
         this.setPopupBtnPos(popupButton);
+
+        // Release guard after microtask so observer sees our mutations and ignores them
+        Promise.resolve().then(() => { this.isInsertingButton = false; });
 
         // bind click to popup
         this.registerDomEvent(target, 'click', this.handleMermaidClick);
@@ -414,7 +443,7 @@ export default class MermaidPopupPlugin extends Plugin {
         });
 
         popupButton.setCssStyles({display:'none'});
-        
+
         this.makePopupButtonDisplay_WhenHoverOnContainer(popupButton, targetContainer);
     }
 
@@ -451,7 +480,7 @@ export default class MermaidPopupPlugin extends Plugin {
         let y = this.settings.open_btn_pos_y;
 
         btn.setCssStyles({
-            right: x + 'px',
+            left: x + 'px',
             top: y + 'px'
         });
     }
@@ -459,52 +488,45 @@ export default class MermaidPopupPlugin extends Plugin {
     adjustDiagramWidthAndHeight_ToContainer(container: HTMLElement, isInPopup:boolean=false){
         let coreDeepEle = this.getCoreDeepElement(container) as HTMLElement;
 
-        // coreDeepEle 为空，则说明是容器类型
+        // coreDeepEle is null for container-type targets (no inner svg/img)
         if (!coreDeepEle)
         {
             let coreEle = this.getCoreElement(container) as HTMLElement;
             if(!coreEle)
                 return;
-            let dg_h_val = parseInt(this.settings.DiagramHeightVal);
-            if (dg_h_val < this.getHeight(coreEle))
-                this.setHeight(coreEle, dg_h_val.toString());
+            // For container types, constrain width to container and auto-adjust height
+            let container_w_o = this.getWidth(container);
+            let coreW = this.getWidth(coreEle);
+            let coreH = this.getHeight(coreEle);
+            if (coreW > container_w_o && coreW > 0) {
+                let rate = container_w_o / coreW;
+                this.setWidth(coreEle, (coreW * rate).toString());
+                this.setHeight(coreEle, (coreH * rate).toString());
+            }
             return;
         }
 
         let coreDeep_w = this.getWidth(coreDeepEle);
         let coreDeep_h = this.getHeight(coreDeepEle);
 
-        // 容器宽度
+        // Container width
         let container_w_o = this.getWidth(container);
 
-        let rate_by_width = 1;
-        if (coreDeep_w > container_w_o) // 图表宽超容器
+        // Scale to fit container width, height follows aspect ratio
+        let rate = 1;
+        if (coreDeep_w > container_w_o && coreDeep_w > 0)
         {
-            rate_by_width = container_w_o / coreDeep_w;
-        }
-            
-        let rate_by_height = 1;
-        // 设置最大高度
-        let dg_h_val = parseInt(this.settings.DiagramHeightVal);
-        if (coreDeep_h > dg_h_val) // 图表高超容器
-        {
-            rate_by_height = dg_h_val / coreDeep_h;
+            rate = container_w_o / coreDeep_w;
         }
 
-        if (rate_by_width == 1 && rate_by_height == 1)
+        if (rate == 1)
             return;
 
-        let rate = rate_by_width < rate_by_height ? rate_by_width : rate_by_height;
-
-        // 按比例缩放后的宽高
-        let container_w = coreDeep_w*rate;
-        let container_h = coreDeep_h*rate;
-        let w = container_w;
-        let h = container_h;
-        if (!isInPopup)
-        {
-            container_w = (container_w < container_w_o) ? container_w_o : container_w;
-        }
+        // Scaled dimensions preserving aspect ratio
+        let w = coreDeep_w * rate;
+        let h = coreDeep_h * rate;
+        let container_w = isInPopup ? w : Math.max(w, container_w_o);
+        let container_h = h;
 
         coreDeepEle.setCssStyles({
             height: h + 'px',
@@ -513,8 +535,8 @@ export default class MermaidPopupPlugin extends Plugin {
         container.setCssStyles({
             height: container_h + 'px',
             width: container_w + 'px'
-        }); 
-     
+        });
+
     }
 
     getWidth(ele:HTMLElement){
@@ -658,8 +680,27 @@ export default class MermaidPopupPlugin extends Plugin {
 
         containerElementInPopup.classList.add('popup-content', 'draggable', 'resizable');
 
+        // Add mouse wheel event for zooming (define before cleanupPopup)
+        const wheelHandler = (evt: WheelEvent) => {
+            // Only prevent default and zoom if the wheel event is over the popup content itself
+            const target = evt.target as HTMLElement;
+            if (containerElementInPopup.contains(target)) {
+                evt.preventDefault();
+                const isOut = evt.deltaY > 0;
+                this.zoomPopupAtCursor(containerElementInPopup, isOut, evt);
+            }
+        };
+
+        // Define cleanup function
+        const cleanupPopup = () => {
+            containerElementInPopup.removeEventListener('wheel', wheelHandler);
+            if (overlay.parentElement?.contains(overlay)) {
+                overlay.parentElement.removeChild(overlay);
+            }
+        };
+
         // Create a container for the control buttons
-        let _buttonContainer = this.createButtonContainer(containerElementInPopup, overlay);
+        let _buttonContainer = this.createButtonContainer(containerElementInPopup, overlay, cleanupPopup);
 
         // Append popup and button container to the overlay
         overlay.appendChild(containerElementInPopup);
@@ -667,9 +708,11 @@ export default class MermaidPopupPlugin extends Plugin {
         _doc.body.appendChild(overlay);
         this.adjustInPopup(containerElementInPopup);
 
-        // Close popup on overlay click
+        // Close popup on overlay click (but not on popup content)
         overlay.addEventListener('click', (evt) => {
-            evt.doc.body.removeChild(overlay);
+            if (evt.target === overlay) {
+                cleanupPopup();
+            }
         });
 
         // Stop propagation to prevent closing when clicking on popup content
@@ -680,11 +723,10 @@ export default class MermaidPopupPlugin extends Plugin {
         // Listen for the Escape key to close the popup
         containerElementInPopup.doc.addEventListener('keydown', (evt) => {
             if (evt.key === 'Escape') {
-                if(containerElementInPopup.doc.body.contains(overlay))
-                    containerElementInPopup.doc.body.removeChild(overlay);
+                cleanupPopup();
             }
-        });    
-        
+        });
+
         this.setPopupSize(containerElementInPopup, containerElement);
 
         // Make the popup draggable
@@ -694,11 +736,7 @@ export default class MermaidPopupPlugin extends Plugin {
         containerElementInPopup.classList.add('resizable');
 
         // Add mouse wheel event for zooming
-        containerElementInPopup.addEventListener('wheel', (evt) => {
-            evt.preventDefault();
-            const isOut = evt.deltaY > 0;
-            this.zoomPopupAtCursor(containerElementInPopup, isOut, evt);
-        });
+        containerElementInPopup.addEventListener('wheel', wheelHandler);
     }
 
     hideElement(ele:HTMLElement)
@@ -810,7 +848,7 @@ export default class MermaidPopupPlugin extends Plugin {
 
     }
 
-    createButtonContainer(_targetElementInPopup:HTMLElement, _overlay:HTMLElement){
+    createButtonContainer(_targetElementInPopup:HTMLElement, _overlay:HTMLElement, cleanupPopup: () => void){
         let _doc = _targetElementInPopup.doc;
 
         const buttonContainer = _doc.createElement('div');
@@ -894,7 +932,7 @@ export default class MermaidPopupPlugin extends Plugin {
 
         closeButton.addEventListener('click', (evt) => {
             evt.stopPropagation();
-            evt.doc.body.removeChild(_overlay);
+            cleanupPopup();
         });        
         return buttonContainer;
     }
@@ -919,8 +957,8 @@ export default class MermaidPopupPlugin extends Plugin {
     // Helper method to zoom the popup at the cursor position
     zoomPopupAtCursor(popup: HTMLElement, isOut:boolean, evt: WheelEvent) {
 
-        // Get the current position of the popup. 
-        // popup 当前中心坐标 = 相对客户端左上的坐标 + 自身长宽/2
+        // Get the current position of the popup.
+        // popup center coordinate = coordinate relative to client top-left + own width/height/2
         const popupRect = popup.getBoundingClientRect();
         const popupCenterX = popupRect.left + popupRect.width / 2;
         const popupCenterY = popupRect.top + popupRect.height / 2;
@@ -940,11 +978,13 @@ export default class MermaidPopupPlugin extends Plugin {
 
         // isOut, 1.1
         let symbol:number = isOut ? -1:1;
-        const newScale = currentScale * (1+ symbol * parseFloat(this.settings.ZoomRatioValue));
+        const damping = parseFloat(this.settings.ZoomDampingValue) || 1.0;
+        const dampedZoomRatio = parseFloat(this.settings.ZoomRatioValue) * damping;
+        const newScale = currentScale * (1+ symbol * dampedZoomRatio);
 
         // Adjust the translation to keep the popup centered relative to the overlay
-        const newX = matrix.m41 - offsetX * symbol * parseFloat(this.settings.ZoomRatioValue);
-        const newY = matrix.m42 - offsetY * symbol * parseFloat(this.settings.ZoomRatioValue);
+        const newX = matrix.m41 - offsetX * symbol * dampedZoomRatio;
+        const newY = matrix.m42 - offsetY * symbol * dampedZoomRatio;
 
         popup.setCssStyles({
             transformOrigin : 'center center', // Ensure scaling is centered
